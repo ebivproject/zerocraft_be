@@ -30,5 +30,5 @@ EXPOSE 3001
 # Set environment
 ENV NODE_ENV=production
 
-# Start the application
-CMD ["node", "dist/app.js"]
+# Start the application with migration
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/app.js"]
