@@ -177,18 +177,15 @@ router.get(
     // JWT 토큰 생성
     const token = generateToken(user.id, user.email);
 
-    // JSON 응답 반환 (API 명세서 기준)
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        profileImage: user.profileImage,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    });
+    // 프론트엔드로 리다이렉트 (토큰을 URL 파라미터로 전달)
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    
+    // state에서 원래 가려던 경로 추출 (있으면 사용, 없으면 기본값)
+    const state = req.query.state as string;
+    const redirectPath = state ? decodeURIComponent(state) : "/";
+    
+    // 프론트엔드의 OAuth 콜백 처리 페이지로 리다이렉트
+    res.redirect(`${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(redirectPath)}`);
   })
 );
 
