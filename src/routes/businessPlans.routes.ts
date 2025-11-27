@@ -115,8 +115,51 @@ router.post(
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { title, grantId, content, data } = req.body;
+    const { title, grantId, content, data, businessPlanId } = req.body;
 
+    // 1. businessPlanId가 제공된 경우: 기존 사업계획서를 내 것으로 가져오기
+    if (businessPlanId) {
+      const existingPlan = await prisma.businessPlan.findUnique({
+        where: { id: businessPlanId },
+      });
+
+      if (!existingPlan) {
+        throw new NotFoundError("해당 사업계획서를 찾을 수 없습니다.");
+      }
+
+      // 소유권 업데이트
+      const updatedPlan = await prisma.businessPlan.update({
+        where: { id: businessPlanId },
+        data: {
+          userId,
+          // 필요하다면 status나 기타 필드도 초기화
+          // status: "draft", 
+        },
+        include: {
+          grant: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      });
+
+      return res.status(200).json({
+        id: updatedPlan.id,
+        title: updatedPlan.title,
+        grantId: updatedPlan.grantId,
+        grantTitle: updatedPlan.grant?.title || null,
+        content: updatedPlan.content,
+        data: updatedPlan.data ?? null,
+        status: updatedPlan.status,
+        userId: updatedPlan.userId,
+        createdAt: updatedPlan.createdAt,
+        updatedAt: updatedPlan.updatedAt,
+      });
+    }
+
+    // 2. 신규 생성 (기존 로직)
     if (!title) {
       throw new BadRequestError("제목은 필수 항목입니다.");
     }
