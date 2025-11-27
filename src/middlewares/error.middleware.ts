@@ -57,6 +57,7 @@ export const errorHandler = (
   next: NextFunction
 ) => {
   console.error("Error:", err);
+  console.error("Error stack:", err.stack);
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
@@ -64,9 +65,11 @@ export const errorHandler = (
     });
   }
 
-  // 예상치 못한 에러
+  // 예상치 못한 에러 - 개발/디버깅용으로 실제 에러 메시지 포함
   return res.status(500).json({
     message: "서버 오류가 발생했습니다.",
+    error: process.env.NODE_ENV !== "production" ? err.message : undefined,
+    stack: process.env.NODE_ENV !== "production" ? err.stack : undefined,
   });
 };
 
