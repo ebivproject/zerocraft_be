@@ -107,11 +107,17 @@ router.get(
   "/google/callback",
   asyncHandler(async (req, res) => {
     const { code } = req.query;
-    
+
     console.log("OAuth callback received");
     console.log("Code:", code ? "present" : "missing");
-    console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID ? "set" : "NOT SET");
-    console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET ? "set" : "NOT SET");
+    console.log(
+      "GOOGLE_CLIENT_ID:",
+      process.env.GOOGLE_CLIENT_ID ? "set" : "NOT SET"
+    );
+    console.log(
+      "GOOGLE_CLIENT_SECRET:",
+      process.env.GOOGLE_CLIENT_SECRET ? "set" : "NOT SET"
+    );
     console.log("GOOGLE_CALLBACK_URL:", process.env.GOOGLE_CALLBACK_URL);
 
     if (!code) {
@@ -137,8 +143,16 @@ router.get(
     console.log("Token response:", JSON.stringify(tokenData, null, 2));
 
     if (!tokenData.access_token) {
-      console.error("Token error:", tokenData.error, tokenData.error_description);
-      throw new UnauthorizedError(`Google 인증 실패: ${tokenData.error_description || tokenData.error || "Unknown error"}`);
+      console.error(
+        "Token error:",
+        tokenData.error,
+        tokenData.error_description
+      );
+      throw new UnauthorizedError(
+        `Google 인증 실패: ${
+          tokenData.error_description || tokenData.error || "Unknown error"
+        }`
+      );
     }
 
     // 사용자 정보 가져오기
@@ -190,13 +204,17 @@ router.get(
 
     // 프론트엔드로 리다이렉트 (토큰을 URL 파라미터로 전달)
     const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-    
+
     // state에서 원래 가려던 경로 추출 (있으면 사용, 없으면 기본값)
     const state = req.query.state as string;
     const redirectPath = state ? decodeURIComponent(state) : "/";
-    
+
     // 프론트엔드의 OAuth 콜백 처리 페이지로 리다이렉트
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(redirectPath)}`);
+    res.redirect(
+      `${frontendUrl}/auth/callback?token=${token}&redirect=${encodeURIComponent(
+        redirectPath
+      )}`
+    );
   })
 );
 
