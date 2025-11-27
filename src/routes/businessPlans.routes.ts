@@ -100,7 +100,7 @@ router.get(
       grantId: businessPlan.grantId,
       grantTitle: businessPlan.grant?.title || null,
       content: businessPlan.content,
-      data: businessPlan.data,
+      data: businessPlan.data ?? null,
       status: businessPlan.status,
       userId: businessPlan.userId,
       createdAt: businessPlan.createdAt,
@@ -151,12 +151,15 @@ router.post(
       },
     });
 
+    // 프론트엔드가 기대하는 `data` 필드를 포함해 응답합니다.
+    // `businessPlan.data` 는 AI가 만든 전체 JSON(선택)이며, 없을 경우 null 로 반환합니다.
     res.status(201).json({
       id: businessPlan.id,
       title: businessPlan.title,
       grantId: businessPlan.grantId,
       grantTitle: businessPlan.grant?.title || null,
       content: businessPlan.content,
+      data: businessPlan.data ?? null,
       status: businessPlan.status,
       userId: businessPlan.userId,
       createdAt: businessPlan.createdAt,
@@ -287,6 +290,7 @@ router.put(
       grantId: updatedBusinessPlan.grantId,
       grantTitle: updatedBusinessPlan.grant?.title || null,
       content: updatedBusinessPlan.content,
+      data: updatedBusinessPlan.data ?? null,
       status: updatedBusinessPlan.status,
       userId: updatedBusinessPlan.userId,
       createdAt: updatedBusinessPlan.createdAt,
