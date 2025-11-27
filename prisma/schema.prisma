@@ -1,0 +1,133 @@
+// Zerocraft Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 사용자
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  profileImage  String?   @db.Text
+  googleId      String?   @unique
+  credits       Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 관계
+  businessPlans   BusinessPlan[]
+  favorites       FavoriteGrant[]
+  payments        Payment[]
+  creditHistories CreditHistory[]
+
+  @@map("users")
+}
+
+// 지원사업
+model Grant {
+  id                 String    @id @default(uuid())
+  title              String    @db.VarChar(500)
+  description        String?   @db.Text
+  organization       String    @db.VarChar(200)
+  deadline           DateTime?
+  amount             String?   @db.VarChar(100)
+  category           String?   @db.VarChar(100)
+  status             String    @default("open") @db.VarChar(20)
+  eligibility        String?   @db.Text
+  applicationMethod  String?   @db.VarChar(200)
+  requiredDocuments  Json?
+  contactInfo        Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // 관계
+  businessPlans BusinessPlan[]
+  favorites     FavoriteGrant[]
+
+  @@map("grants")
+}
+
+// 사업계획서
+model BusinessPlan {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(500)
+  content   Json?    // 섹션 기반 콘텐츠
+  data      Json?    // AI 생성 데이터
+  status    String   @default("draft") @db.VarChar(20)
+  userId    String
+  grantId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 관계
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grant   Grant? @relation(fields: [grantId], references: [id], onDelete: SetNull)
+
+  // 이용권 사용 내역과의 관계
+  creditHistories CreditHistory[]
+
+  @@map("business_plans")
+}
+
+// 찜한 지원사업
+model FavoriteGrant {
+  id        String   @id @default(uuid())
+  userId    String
+  grantId   String
+  createdAt DateTime @default(now())
+
+  // 관계
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  grant Grant @relation(fields: [grantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, grantId])
+  @@map("favorite_grants")
+}
+
+// 결제
+model Payment {
+  id            String   @id @default(uuid())
+  orderId       String   @unique @db.VarChar(100)
+  userId        String
+  productId     String   @db.VarChar(100)
+  productName   String   @db.VarChar(200)
+  amount        Int
+  creditsAdded  Int      @default(0)
+  status        String   @default("pending") @db.VarChar(20)
+  paymentMethod String?  @db.VarChar(50)
+  paymentKey    String?  @db.VarChar(200) // 결제 게이트웨이 키
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 관계
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditHistories CreditHistory[]
+
+  @@map("payments")
+}
+
+// 이용권 내역
+model CreditHistory {
+  id             String   @id @default(uuid())
+  userId         String
+  type           String   @db.VarChar(20) // 'purchase' | 'use'
+  amount         Int      // 양수: 충전, 음수: 사용
+  description    String?  @db.VarChar(200)
+  businessPlanId String?
+  paymentId      String?
+  createdAt      DateTime @default(now())
+
+  // 관계
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessPlan BusinessPlan? @relation(fields: [businessPlanId], references: [id], onDelete: SetNull)
+  payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@map("credit_histories")
+}
+
