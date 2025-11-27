@@ -2,15 +2,24 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# Install all dependencies (including devDependencies for build)
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --only=production
+RUN npm ci
+
+# Generate Prisma Client
 RUN npx prisma generate
 
-# Copy built files
-COPY dist ./dist
+# Copy source files
+COPY tsconfig.json ./
+COPY src ./src
+
+# Build TypeScript
+RUN npm run build
+
+# Remove devDependencies
+RUN npm prune --production
 
 # Expose port
 EXPOSE 3001
