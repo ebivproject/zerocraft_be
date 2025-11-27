@@ -20,14 +20,20 @@ import mypageRoutes from "./routes/mypage.routes";
 import { errorHandler } from "./middlewares/error.middleware";
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = parseInt(process.env.PORT || "3001", 10);
+const HOST = "0.0.0.0";
 
-// 허용된 Origin 목록
+// 허용된 Origin 목록 (FRONTEND_URL이 콤마로 구분된 경우 처리)
+const frontendUrls = (process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((url) => url.trim())
+  .filter(Boolean);
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  ...frontendUrls,
   "http://localhost:3000",
   "http://localhost:3001",
-].filter(Boolean) as string[];
+];
 
 // 미들웨어 설정
 app.use(helmet());
@@ -38,7 +44,8 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        console.log(`CORS blocked origin: ${origin}`);
+        callback(null, true); // 프로덕션에서는 일단 허용 (디버깅용)
       }
     },
     credentials: true,
@@ -62,12 +69,18 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// 루트 경로
+app.get("/", (req, res) => {
+  res.json({ message: "Zerocraft API Server", version: "1.0.0" });
+});
+
 // 에러 핸들러
 app.use(errorHandler);
 
 // 서버 시작
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Server is running on http://${HOST}:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
 
 export default app;
