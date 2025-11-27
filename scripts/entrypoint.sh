@@ -1,10 +1,12 @@
 #!/bin/sh
 set -e
 
-until npx prisma migrate deploy; do
-  echo "Prisma migrate deploy failed. Retrying in 5 seconds..."
+echo "Waiting for database connection..."
+
+until npx prisma db push --accept-data-loss; do
+  echo "Prisma db push failed. Retrying in 5 seconds..."
   sleep 5
 done
 
-echo "Prisma migrate deploy succeeded. Starting application..."
+echo "Database schema synced. Starting application..."
 exec node dist/app.js
