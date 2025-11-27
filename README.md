@@ -108,56 +108,56 @@ npm start
 
 ### 인증 (Auth)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/auth/google` | Google 로그인 URL 요청 |
-| GET | `/api/auth/google/callback` | Google OAuth 콜백 |
-| POST | `/api/auth/logout` | 로그아웃 |
-| GET | `/api/auth/me` | 내 정보 조회 |
+| Method | Endpoint                    | Description            |
+| ------ | --------------------------- | ---------------------- |
+| GET    | `/api/auth/google`          | Google 로그인 URL 요청 |
+| GET    | `/api/auth/google/callback` | Google OAuth 콜백      |
+| POST   | `/api/auth/logout`          | 로그아웃               |
+| GET    | `/api/auth/me`              | 내 정보 조회           |
 
 ### 이용권/결제 (Credits/Payments)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/credits` | 이용권 잔액 조회 |
-| GET | `/api/credits/history` | 이용권 사용 내역 |
-| POST | `/api/credits/use` | 이용권 사용 |
-| POST | `/api/payments` | 결제 요청 |
-| POST | `/api/payments/:id/confirm` | 결제 확인 |
-| GET | `/api/payments` | 결제 내역 조회 |
+| Method | Endpoint                    | Description      |
+| ------ | --------------------------- | ---------------- |
+| GET    | `/api/credits`              | 이용권 잔액 조회 |
+| GET    | `/api/credits/history`      | 이용권 사용 내역 |
+| POST   | `/api/credits/use`          | 이용권 사용      |
+| POST   | `/api/payments`             | 결제 요청        |
+| POST   | `/api/payments/:id/confirm` | 결제 확인        |
+| GET    | `/api/payments`             | 결제 내역 조회   |
 
 ### 사업계획서 (Business Plans)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/business-plans` | 목록 조회 |
-| GET | `/api/business-plans/:id` | 상세 조회 |
-| POST | `/api/business-plans` | 생성 |
-| PUT | `/api/business-plans/:id` | 수정 |
-| DELETE | `/api/business-plans/:id` | 삭제 |
-| GET | `/api/business-plans/:id/download` | DOCX 다운로드 |
+| Method | Endpoint                           | Description   |
+| ------ | ---------------------------------- | ------------- |
+| GET    | `/api/business-plans`              | 목록 조회     |
+| GET    | `/api/business-plans/:id`          | 상세 조회     |
+| POST   | `/api/business-plans`              | 생성          |
+| PUT    | `/api/business-plans/:id`          | 수정          |
+| DELETE | `/api/business-plans/:id`          | 삭제          |
+| GET    | `/api/business-plans/:id/download` | DOCX 다운로드 |
 
 ### 찜한 지원사업 (Favorites)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/favorites/grants` | 찜 목록 조회 |
-| POST | `/api/favorites/grants` | 찜 추가 |
-| DELETE | `/api/favorites/grants/:grantId` | 찜 해제 |
-| GET | `/api/favorites/grants/:grantId/check` | 찜 여부 확인 |
+| Method | Endpoint                               | Description  |
+| ------ | -------------------------------------- | ------------ |
+| GET    | `/api/favorites/grants`                | 찜 목록 조회 |
+| POST   | `/api/favorites/grants`                | 찜 추가      |
+| DELETE | `/api/favorites/grants/:grantId`       | 찜 해제      |
+| GET    | `/api/favorites/grants/:grantId/check` | 찜 여부 확인 |
 
 ### 지원사업 (Grants)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/grants` | 목록 조회 |
-| GET | `/api/grants/:id` | 상세 조회 |
+| Method | Endpoint          | Description |
+| ------ | ----------------- | ----------- |
+| GET    | `/api/grants`     | 목록 조회   |
+| GET    | `/api/grants/:id` | 상세 조회   |
 
 ### 마이페이지 (MyPage)
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/mypage` | 통합 데이터 조회 |
+| Method | Endpoint      | Description      |
+| ------ | ------------- | ---------------- |
+| GET    | `/api/mypage` | 통합 데이터 조회 |
 
 ## 인증
 
