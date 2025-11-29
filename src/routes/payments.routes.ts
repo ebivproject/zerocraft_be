@@ -21,7 +21,7 @@ const PRODUCTS: Record<
   business_plan_1: {
     name: "AI 사업계획서 이용권 1회",
     credits: 1,
-    price: 29900,
+    price: 50000,
   },
   business_plan_3: {
     name: "AI 사업계획서 이용권 3회",
@@ -34,7 +34,7 @@ const PRODUCTS: Record<
     price: 119900,
   },
   // 기존 ID도 호환성 유지
-  "credit-1": { name: "AI 사업계획서 이용권 1회", credits: 1, price: 29900 },
+  "credit-1": { name: "AI 사업계획서 이용권 1회", credits: 1, price: 50000 },
   "credit-3": { name: "AI 사업계획서 이용권 3회", credits: 3, price: 79900 },
   "credit-5": { name: "AI 사업계획서 이용권 5회", credits: 5, price: 119900 },
 };

@@ -20,6 +20,11 @@ router.get("/google", (req, res) => {
 
   const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}&state=${state}&access_type=offline&prompt=consent`;
 
+  console.log("Google OAuth URL requested");
+  console.log("GOOGLE_CLIENT_ID:", clientId ? "set" : "NOT SET");
+  console.log("GOOGLE_CALLBACK_URL:", redirectUri);
+  console.log("Generated URL:", url);
+
   res.json({ url });
 });
 
