@@ -9,6 +9,7 @@ import {
 } from "../middlewares/error.middleware";
 import { AuthRequest } from "../types";
 import { parsePaginationParams, paginate } from "../utils/pagination";
+import { validateCoupon } from "./coupons.routes";
 
 const router = Router();
 
@@ -32,15 +33,33 @@ router.post(
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { productId, paymentMethod, amount } = req.body;
+    const { productId, paymentMethod, amount, couponCode } = req.body;
 
     const product = PRODUCTS[productId];
     if (!product) {
       throw new BadRequestError("유효하지 않은 상품입니다.");
     }
 
-    if (amount !== product.price) {
-      throw new BadRequestError("결제 금액이 일치하지 않습니다.");
+    let finalAmount = product.price;
+    let couponId: string | null = null;
+
+    // 쿠폰 검증 및 적용
+    if (couponCode) {
+      const couponResult = await validateCoupon(couponCode);
+
+      if (!couponResult.valid) {
+        throw new BadRequestError(couponResult.message || "유효하지 않은 쿠폰입니다.");
+      }
+
+      const coupon = couponResult.coupon!;
+      couponId = coupon.id;
+      finalAmount = Math.max(0, product.price - coupon.discountAmount);
+    }
+
+    if (amount !== finalAmount) {
+      throw new BadRequestError(
+        `결제 금액이 일치하지 않습니다. 예상 금액: ${finalAmount}원`
+      );
     }
 
     // 주문 ID 생성
@@ -59,6 +78,7 @@ router.post(
         creditsAdded: product.credits,
         status: "pending",
         paymentMethod: paymentMethod || "card",
+        couponId,
       },
     });
 
@@ -112,6 +132,16 @@ router.post(
           paymentKey: `PK-${uuidv4()}`, // 실제로는 결제 게이트웨이에서 받은 키
         },
       });
+
+      // 쿠폰 사용 횟수 증가
+      if (payment.couponId) {
+        await tx.coupon.update({
+          where: { id: payment.couponId },
+          data: {
+            usedCount: { increment: 1 },
+          },
+        });
+      }
 
       // 이용권 추가
       const updatedUser = await tx.user.update({

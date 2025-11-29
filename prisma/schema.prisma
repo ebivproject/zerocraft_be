@@ -17,6 +17,7 @@ model User {
   profileImage  String?   @db.Text
   googleId      String?   @unique
   credits       Int       @default(0)
+  role          String    @default("user") @db.VarChar(20) // "user" | "admin"
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -102,11 +103,13 @@ model Payment {
   status        String   @default("pending") @db.VarChar(20)
   paymentMethod String?  @db.VarChar(50)
   paymentKey    String?  @db.VarChar(200) // 결제 게이트웨이 키
+  couponId      String?  // 사용한 쿠폰 ID
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   // 관계
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon          Coupon?         @relation(fields: [couponId], references: [id], onDelete: SetNull)
   creditHistories CreditHistory[]
 
   @@map("payments")
@@ -129,5 +132,26 @@ model CreditHistory {
   payment      Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
 
   @@map("credit_histories")
+}
+
+// 쿠폰
+model Coupon {
+  id             String    @id @default(uuid())
+  code           String    @unique @db.VarChar(50)
+  discountAmount Int       // 할인 금액 (KRW)
+  expiresAt      DateTime  // 만료일
+  maxUses        Int?      // 최대 사용 횟수 (null = 무제한)
+  usedCount      Int       @default(0) // 사용된 횟수
+  isActive       Boolean   @default(true) // 활성화 여부
+  description    String?   @db.VarChar(255)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // 관계
+  payments Payment[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("coupons")
 }
 

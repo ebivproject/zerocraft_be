@@ -15,6 +15,7 @@ import businessPlansRoutes from "./routes/businessPlans.routes";
 import favoritesRoutes from "./routes/favorites.routes";
 import grantsRoutes from "./routes/grants.routes";
 import mypageRoutes from "./routes/mypage.routes";
+import couponsRoutes from "./routes/coupons.routes";
 
 // 미들웨어 임포트
 import { errorHandler } from "./middlewares/error.middleware";
@@ -63,6 +64,7 @@ app.use("/api/business-plans", businessPlansRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use("/api/grants", grantsRoutes);
 app.use("/api/mypage", mypageRoutes);
+app.use("/api/coupons", couponsRoutes);
 
 // 헬스체크
 app.get("/health", (req, res) => {
