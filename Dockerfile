@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
 # Install OpenSSL and other dependencies for Prisma
-RUN apk add --no-cache openssl openssl-dev libc6-compat
+RUN apk add --no-cache openssl openssl-dev libc6-compat bash
 
 WORKDIR /app
 
@@ -24,8 +24,8 @@ RUN chmod +x ./scripts/entrypoint.sh
 # Build TypeScript
 RUN npm run build
 
-# Remove devDependencies
-RUN npm prune --production
+# Keep Prisma CLI for migrations
+RUN npm prune --production && npm install prisma --save-dev
 
 # Expose port
 EXPOSE 3001
