@@ -18,9 +18,21 @@ const PRODUCTS: Record<
   string,
   { name: string; credits: number; price: number }
 > = {
-  "business_plan_1": { name: "AI 사업계획서 이용권 1회", credits: 1, price: 29900 },
-  "business_plan_3": { name: "AI 사업계획서 이용권 3회", credits: 3, price: 79900 },
-  "business_plan_5": { name: "AI 사업계획서 이용권 5회", credits: 5, price: 119900 },
+  business_plan_1: {
+    name: "AI 사업계획서 이용권 1회",
+    credits: 1,
+    price: 29900,
+  },
+  business_plan_3: {
+    name: "AI 사업계획서 이용권 3회",
+    credits: 3,
+    price: 79900,
+  },
+  business_plan_5: {
+    name: "AI 사업계획서 이용권 5회",
+    credits: 5,
+    price: 119900,
+  },
   // 기존 ID도 호환성 유지
   "credit-1": { name: "AI 사업계획서 이용권 1회", credits: 1, price: 29900 },
   "credit-3": { name: "AI 사업계획서 이용권 3회", credits: 3, price: 79900 },
@@ -48,7 +60,9 @@ router.post(
       const couponResult = await validateCoupon(couponCode);
 
       if (!couponResult.valid) {
-        throw new BadRequestError(couponResult.message || "유효하지 않은 쿠폰입니다.");
+        throw new BadRequestError(
+          couponResult.message || "유효하지 않은 쿠폰입니다."
+        );
       }
 
       const coupon = couponResult.coupon!;
