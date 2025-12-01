@@ -232,31 +232,143 @@ router.get(
       throw new ForbiddenError("이 사업계획서에 접근할 권한이 없습니다.");
     }
 
-    // DOCX 문서 생성
-    const content = businessPlan.content as BusinessPlanContent | null;
-    const sections = content?.sections || [];
+    // data 필드에서 사업계획서 내용 추출
+    const planData = businessPlan.data as any;
+    const docChildren: Paragraph[] = [];
 
-    const docChildren: Paragraph[] = [
+    // 문서 제목
+    const documentTitle = planData?.documentTitle || businessPlan.title;
+    docChildren.push(
       new Paragraph({
-        text: businessPlan.title,
+        text: documentTitle,
         heading: HeadingLevel.TITLE,
         spacing: { after: 400 },
-      }),
-    ];
+      })
+    );
 
-    // 섹션 내용 추가
-    for (const section of sections) {
-      docChildren.push(
-        new Paragraph({
-          text: section.title,
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 200 },
-        }),
-        new Paragraph({
-          children: [new TextRun(section.content || "")],
-          spacing: { after: 200 },
-        })
-      );
+    // 섹션 순서 정의
+    const sectionOrder = ["generalStatus", "summary", "problem", "solution", "scaleup", "team"];
+
+    if (planData?.sections) {
+      for (const sectionKey of sectionOrder) {
+        const section = planData.sections[sectionKey];
+        if (!section) continue;
+
+        // 섹션 제목
+        docChildren.push(
+          new Paragraph({
+            text: section.title || sectionKey,
+            heading: HeadingLevel.HEADING_1,
+            spacing: { before: 400, after: 200 },
+          })
+        );
+
+        // 섹션 데이터 처리 (summary, generalStatus 등)
+        if (section.data) {
+          for (const [key, value] of Object.entries(section.data)) {
+            if (typeof value === "string") {
+              docChildren.push(
+                new Paragraph({
+                  children: [new TextRun({ text: `${key}: `, bold: true }), new TextRun(value)],
+                  spacing: { after: 100 },
+                })
+              );
+            } else if (typeof value === "object" && value !== null) {
+              docChildren.push(
+                new Paragraph({
+                  children: [new TextRun({ text: `${key}:`, bold: true })],
+                  spacing: { after: 50 },
+                })
+              );
+              for (const [subKey, subValue] of Object.entries(value as object)) {
+                if (typeof subValue === "string") {
+                  docChildren.push(
+                    new Paragraph({
+                      children: [new TextRun({ text: `  - ${subKey}: `, bold: true }), new TextRun(subValue)],
+                      spacing: { after: 50 },
+                    })
+                  );
+                }
+              }
+            }
+          }
+        }
+
+        // subSections 처리
+        if (section.subSections && Array.isArray(section.subSections)) {
+          for (const subSection of section.subSections) {
+            // 소제목
+            if (subSection.subTitle) {
+              docChildren.push(
+                new Paragraph({
+                  text: subSection.subTitle,
+                  heading: HeadingLevel.HEADING_2,
+                  spacing: { before: 300, after: 150 },
+                })
+              );
+            }
+
+            // 콘텐츠 처리
+            if (subSection.content) {
+              const content = subSection.content;
+              for (const [contentKey, contentValue] of Object.entries(content)) {
+                // 배열인 경우 (problems, competitorAnalysis 등)
+                if (Array.isArray(contentValue)) {
+                  for (const item of contentValue) {
+                    if (typeof item === "string") {
+                      docChildren.push(
+                        new Paragraph({
+                          children: [new TextRun(`• ${item}`)],
+                          spacing: { after: 100 },
+                        })
+                      );
+                    } else if (typeof item === "object" && item !== null) {
+                      // 테이블 형태의 데이터
+                      const itemEntries = Object.entries(item as object)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" | ");
+                      docChildren.push(
+                        new Paragraph({
+                          children: [new TextRun(`• ${itemEntries}`)],
+                          spacing: { after: 100 },
+                        })
+                      );
+                    }
+                  }
+                }
+                // 문자열인 경우
+                else if (typeof contentValue === "string") {
+                  docChildren.push(
+                    new Paragraph({
+                      children: [new TextRun({ text: `${contentKey}: `, bold: true }), new TextRun(contentValue)],
+                      spacing: { after: 100 },
+                    })
+                  );
+                }
+                // 객체인 경우
+                else if (typeof contentValue === "object" && contentValue !== null) {
+                  docChildren.push(
+                    new Paragraph({
+                      children: [new TextRun({ text: `[${contentKey}]`, bold: true })],
+                      spacing: { before: 150, after: 50 },
+                    })
+                  );
+                  for (const [objKey, objValue] of Object.entries(contentValue as object)) {
+                    if (typeof objValue === "string") {
+                      docChildren.push(
+                        new Paragraph({
+                          children: [new TextRun({ text: `${objKey}: `, bold: true }), new TextRun(objValue)],
+                          spacing: { after: 50 },
+                        })
+                      );
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     const doc = new Document({
