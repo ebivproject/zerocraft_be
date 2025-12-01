@@ -238,6 +238,58 @@ router.get(
   })
 );
 
+// 유저 역할 변경
+router.patch(
+  "/users/:id/role",
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    // 유효한 역할인지 검증
+    if (!role || !["admin", "user"].includes(role)) {
+      throw new BadRequestError("유효한 역할을 입력해주세요. (admin 또는 user)");
+    }
+
+    // 자기 자신의 역할은 변경 불가
+    if (req.user?.id === id) {
+      throw new ForbiddenError("자기 자신의 역할은 변경할 수 없습니다.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundError("사용자를 찾을 수 없습니다.");
+    }
+
+    const previousRole = user.role;
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { role },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        credits: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({
+      user: updatedUser,
+      previousRole,
+      newRole: role,
+      message: "역할이 성공적으로 변경되었습니다.",
+    });
+  })
+);
+
 // 유저 이용권 변경
 router.patch(
   "/users/:id/credits",
