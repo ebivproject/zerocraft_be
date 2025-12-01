@@ -16,6 +16,7 @@ import favoritesRoutes from "./routes/favorites.routes";
 import grantsRoutes from "./routes/grants.routes";
 import mypageRoutes from "./routes/mypage.routes";
 import couponsRoutes from "./routes/coupons.routes";
+import adminRoutes from "./routes/admin.routes";
 
 // 미들웨어 임포트
 import { errorHandler } from "./middlewares/error.middleware";
@@ -65,6 +66,7 @@ app.use("/api/favorites", favoritesRoutes);
 app.use("/api/grants", grantsRoutes);
 app.use("/api/mypage", mypageRoutes);
 app.use("/api/coupons", couponsRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 헬스체크
 app.get("/health", (req, res) => {

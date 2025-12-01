@@ -13,6 +13,13 @@ import { validateCoupon } from "./coupons.routes";
 
 const router = Router();
 
+// 토스페이먼츠 응답 타입
+interface TossPaymentResponse {
+  method?: string;
+  message?: string;
+  code?: string;
+}
+
 // 상품 정보 (실제로는 DB나 설정에서 관리)
 const PRODUCTS: Record<
   string,
@@ -39,13 +46,13 @@ const PRODUCTS: Record<
   "credit-5": { name: "AI 사업계획서 이용권 5회", credits: 5, price: 119900 },
 };
 
-// 2.2 결제 요청
+// 2.2 결제 요청 (토스페이먼츠용 orderId 생성)
 router.post(
   "/",
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { productId, paymentMethod, amount, couponCode } = req.body;
+    const { productId, couponCode } = req.body;
 
     const product = PRODUCTS[productId];
     if (!product) {
@@ -70,16 +77,8 @@ router.post(
       finalAmount = Math.max(0, product.price - coupon.discountAmount);
     }
 
-    if (amount !== finalAmount) {
-      throw new BadRequestError(
-        `결제 금액이 일치하지 않습니다. 예상 금액: ${finalAmount}원`
-      );
-    }
-
-    // 주문 ID 생성
-    const orderId = `ORDER-${new Date().getFullYear()}-${uuidv4()
-      .slice(0, 8)
-      .toUpperCase()}`;
+    // 주문 ID 생성 (토스페이먼츠는 6자~64자)
+    const orderId = `ORDER_${Date.now()}_${uuidv4().slice(0, 8)}`;
 
     // 결제 레코드 생성
     const payment = await prisma.payment.create({
@@ -88,38 +87,42 @@ router.post(
         userId,
         productId,
         productName: product.name,
-        amount,
+        amount: finalAmount,
         creditsAdded: product.credits,
         status: "pending",
-        paymentMethod: paymentMethod || "card",
+        paymentMethod: "card",
         couponId,
       },
     });
 
-    // 실제로는 결제 게이트웨이 URL을 반환
-    // 여기서는 테스트용으로 임시 URL 반환
+    // 프론트엔드에서 토스페이먼츠 결제창을 띄울 때 필요한 정보 반환
     res.json({
       paymentId: payment.id,
       orderId: payment.orderId,
       amount: payment.amount,
-      status: payment.status,
-      paymentUrl: `https://payment-gateway.com/pay/${payment.id}`,
+      productName: product.name,
+      customerName: req.user!.name,
+      customerEmail: req.user!.email,
     });
   })
 );
 
-// 2.3 결제 확인/완료
+// 2.3 토스페이먼츠 결제 승인
 router.post(
-  "/:paymentId/confirm",
+  "/confirm",
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { paymentId } = req.params;
+    const { orderId, paymentKey, amount } = req.body;
+
+    if (!orderId || !paymentKey || !amount) {
+      throw new BadRequestError("필수 파라미터가 누락되었습니다.");
+    }
 
     // 결제 정보 조회
     const payment = await prisma.payment.findFirst({
       where: {
-        id: paymentId,
+        orderId,
         userId,
       },
     });
@@ -132,18 +135,60 @@ router.post(
       throw new BadRequestError("이미 완료된 결제입니다.");
     }
 
-    if (payment.status !== "pending") {
-      throw new BadRequestError("결제 처리에 실패했습니다.");
+    // 금액 검증
+    if (payment.amount !== amount) {
+      throw new BadRequestError("결제 금액이 일치하지 않습니다.");
+    }
+
+    // 토스페이먼츠 결제 승인 API 호출
+    const tossSecretKey = process.env.TOSS_SECRET_KEY;
+    if (!tossSecretKey) {
+      throw new Error("토스페이먼츠 시크릿 키가 설정되지 않았습니다.");
+    }
+
+    const tossResponse = await fetch(
+      "https://api.tosspayments.com/v1/payments/confirm",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${Buffer.from(tossSecretKey + ":").toString(
+            "base64"
+          )}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          orderId,
+          amount,
+          paymentKey,
+        }),
+      }
+    );
+
+    const tossData = (await tossResponse.json()) as TossPaymentResponse;
+
+    if (!tossResponse.ok) {
+      console.error("토스페이먼츠 승인 실패:", tossData);
+
+      // 결제 실패 상태 업데이트
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: "failed" },
+      });
+
+      throw new BadRequestError(
+        `결제 승인 실패: ${tossData.message || "알 수 없는 오류"}`
+      );
     }
 
     // 트랜잭션으로 결제 완료 처리
     const result = await prisma.$transaction(async (tx) => {
       // 결제 상태 업데이트
       const updatedPayment = await tx.payment.update({
-        where: { id: paymentId },
+        where: { id: payment.id },
         data: {
           status: "completed",
-          paymentKey: `PK-${uuidv4()}`, // 실제로는 결제 게이트웨이에서 받은 키
+          paymentKey: paymentKey,
+          paymentMethod: tossData.method || "card",
         },
       });
 
@@ -181,6 +226,7 @@ router.post(
 
     res.json({
       paymentId: result.payment.id,
+      orderId: result.payment.orderId,
       status: "completed",
       creditsAdded: result.payment.creditsAdded,
       currentCredits: result.user.credits,
