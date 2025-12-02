@@ -360,4 +360,161 @@ router.patch(
   })
 );
 
+// =====================================================
+// 결제 요청 관리 API
+// =====================================================
+
+// 결제 요청 목록 조회 (관리자)
+router.get(
+  "/payment-requests",
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit, skip } = parsePaginationParams(req.query as any);
+    const { status } = req.query;
+
+    const where: any = {};
+    if (status && ["pending", "approved", "rejected"].includes(status as string)) {
+      where.status = status;
+    }
+
+    const [requests, total] = await Promise.all([
+      prisma.paymentRequest.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.paymentRequest.count({ where }),
+    ]);
+
+    const data = requests.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      userName: r.user.name,
+      userEmail: r.user.email,
+      depositorName: r.depositorName,
+      amount: r.amount,
+      status: r.status,
+      creditsToAdd: r.creditsToAdd,
+      adminNote: r.adminNote,
+      createdAt: r.createdAt,
+      updatedAt: r.updatedAt,
+    }));
+
+    res.json(paginate(data, total, page, limit));
+  })
+);
+
+// 결제 요청 승인 (관리자)
+router.post(
+  "/payment-requests/:id/approve",
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { creditsToAdd } = req.body;
+
+    const paymentRequest = await prisma.paymentRequest.findUnique({
+      where: { id },
+    });
+
+    if (!paymentRequest) {
+      throw new NotFoundError("결제 요청을 찾을 수 없습니다.");
+    }
+
+    if (paymentRequest.status !== "pending") {
+      throw new BadRequestError("이미 처리된 요청입니다.");
+    }
+
+    const finalCreditsToAdd = creditsToAdd || paymentRequest.creditsToAdd;
+
+    // 트랜잭션으로 승인 처리
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 요청 상태 업데이트
+      const updatedRequest = await tx.paymentRequest.update({
+        where: { id },
+        data: {
+          status: "approved",
+          creditsToAdd: finalCreditsToAdd,
+        },
+      });
+
+      // 2. 사용자 크레딧 추가
+      await tx.user.update({
+        where: { id: paymentRequest.userId },
+        data: {
+          credits: { increment: finalCreditsToAdd },
+        },
+      });
+
+      // 3. 크레딧 내역 기록
+      await tx.creditHistory.create({
+        data: {
+          userId: paymentRequest.userId,
+          type: "purchase",
+          amount: finalCreditsToAdd,
+          description: `무통장 입금 승인 (${paymentRequest.amount.toLocaleString()}원)`,
+        },
+      });
+
+      return updatedRequest;
+    });
+
+    res.json({
+      id: result.id,
+      status: result.status,
+      creditsToAdd: result.creditsToAdd,
+      message: "결제 요청이 승인되었습니다.",
+    });
+  })
+);
+
+// 결제 요청 거절 (관리자)
+router.post(
+  "/payment-requests/:id/reject",
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const { adminNote } = req.body;
+
+    const paymentRequest = await prisma.paymentRequest.findUnique({
+      where: { id },
+    });
+
+    if (!paymentRequest) {
+      throw new NotFoundError("결제 요청을 찾을 수 없습니다.");
+    }
+
+    if (paymentRequest.status !== "pending") {
+      throw new BadRequestError("이미 처리된 요청입니다.");
+    }
+
+    const result = await prisma.paymentRequest.update({
+      where: { id },
+      data: {
+        status: "rejected",
+        adminNote: adminNote || null,
+      },
+    });
+
+    res.json({
+      id: result.id,
+      status: result.status,
+      adminNote: result.adminNote,
+      message: "결제 요청이 거절되었습니다.",
+    });
+  })
+);
+
 export default router;
