@@ -115,7 +115,7 @@ router.post(
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { title, grantId, content, data, businessPlanId } = req.body;
+    const { title, grantId, content, data, businessPlanId, useCredit } = req.body;
 
     // 1. businessPlanId가 제공된 경우: 기존 사업계획서를 내 것으로 가져오기
     if (businessPlanId) {
@@ -133,7 +133,7 @@ router.post(
         data: {
           userId,
           // 필요하다면 status나 기타 필드도 초기화
-          // status: "draft", 
+          // status: "draft",
         },
         include: {
           grant: {
@@ -175,6 +175,76 @@ router.post(
       }
     }
 
+    // AI 생성 사업계획서인 경우 (useCredit: true) 크레딧 검증 및 차감
+    if (useCredit) {
+      // 크레딧 검증
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+      });
+
+      if (!user || user.credits < 1) {
+        throw new BadRequestError("이용권이 부족합니다.");
+      }
+
+      // 트랜잭션으로 크레딧 차감 + 사업계획서 생성
+      const result = await prisma.$transaction(async (tx) => {
+        // 크레딧 차감
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            credits: { decrement: 1 },
+          },
+        });
+
+        // 사업계획서 생성
+        const newPlan = await tx.businessPlan.create({
+          data: {
+            title,
+            grantId: grantId || null,
+            content: content || { sections: [] },
+            data: data || {},
+            status: "draft",
+            userId,
+          },
+          include: {
+            grant: {
+              select: {
+                id: true,
+                title: true,
+              },
+            },
+          },
+        });
+
+        // 크레딧 사용 내역 생성
+        await tx.creditHistory.create({
+          data: {
+            userId,
+            type: "use",
+            amount: -1,
+            description: `사업계획서 생성: ${title}`,
+            businessPlanId: newPlan.id,
+          },
+        });
+
+        return newPlan;
+      });
+
+      return res.status(201).json({
+        id: result.id,
+        title: result.title,
+        grantId: result.grantId,
+        grantTitle: result.grant?.title || null,
+        content: result.content,
+        data: result.data ?? null,
+        status: result.status,
+        userId: result.userId,
+        createdAt: result.createdAt,
+        updatedAt: result.updatedAt,
+      });
+    }
+
+    // 일반 사업계획서 생성 (크레딧 미사용)
     const businessPlan = await prisma.businessPlan.create({
       data: {
         title,
