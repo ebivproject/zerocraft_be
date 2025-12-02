@@ -8,25 +8,20 @@ import { validateCoupon } from "./coupons.routes";
 
 const router = Router();
 
+// 상품 정가 (무통장 입금 기본 가격)
+const PRODUCT_PRICE = 50000;
+
 // 1. POST /api/payment-requests - 결제 요청 생성 (사용자)
 router.post(
   "/",
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { depositorName, originalAmount, amount, couponCode, creditsToAdd } =
-      req.body;
-
-    // amount 또는 originalAmount 둘 다 허용 (하위 호환)
-    const baseAmount = originalAmount || amount;
+    const { depositorName, couponCode, creditsToAdd } = req.body;
 
     // 필수 필드 검증
-    if (!depositorName || !baseAmount) {
-      throw new BadRequestError("입금자명과 금액은 필수입니다.");
-    }
-
-    if (baseAmount < 1000) {
-      throw new BadRequestError("최소 입금 금액은 1,000원입니다.");
+    if (!depositorName) {
+      throw new BadRequestError("입금자명은 필수입니다.");
     }
 
     let couponId: string | null = null;
@@ -49,14 +44,15 @@ router.post(
       discountAmount = coupon.discountAmount;
     }
 
-    const finalAmount = Math.max(0, baseAmount - discountAmount);
+    // 최종 금액 = 상품 정가 - 할인 금액
+    const finalAmount = Math.max(0, PRODUCT_PRICE - discountAmount);
 
     const paymentRequest = await prisma.paymentRequest.create({
       data: {
         userId,
         depositorName,
         amount: finalAmount,
-        originalAmount: baseAmount,
+        originalAmount: PRODUCT_PRICE, // 상품 정가 사용
         couponId,
         couponCode: couponCodeToSave,
         discountAmount,
