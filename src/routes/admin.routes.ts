@@ -422,7 +422,7 @@ router.post(
   requireAdmin,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { creditsToAdd } = req.body;
+    const creditsToAdd = req.body?.creditsToAdd;
 
     const paymentRequest = await prisma.paymentRequest.findUnique({
       where: { id },
@@ -486,7 +486,7 @@ router.post(
   requireAdmin,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
-    const { adminNote } = req.body;
+    const adminNote = req.body?.adminNote;
 
     const paymentRequest = await prisma.paymentRequest.findUnique({
       where: { id },
