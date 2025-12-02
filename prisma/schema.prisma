@@ -15,7 +15,7 @@ model User {
   email         String    @unique
   name          String
   profileImage  String?   @db.Text
-  googleId      String?   @unique
+  kakaoId       String?   @unique
   credits       Int       @default(0)
   role          String    @default("user") @db.VarChar(20) // "user" | "admin"
   createdAt     DateTime  @default(now())
