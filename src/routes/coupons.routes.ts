@@ -90,7 +90,7 @@ router.post(
   })
 );
 
-// 2. GET /api/coupons - 쿠폰 목록 (Admin only)
+// 2. GET /api/coupons - 쿠폰 목록 (Admin only) - 사용 내역 포함
 router.get(
   "/",
   authenticate,
@@ -98,6 +98,23 @@ router.get(
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const coupons = await prisma.coupon.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        payments: {
+          where: { status: "completed" },
+          select: {
+            id: true,
+            createdAt: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
     });
 
     res.json({
@@ -112,12 +129,106 @@ router.get(
         description: coupon.description,
         createdAt: coupon.createdAt,
         updatedAt: coupon.updatedAt,
+        usedBy: coupon.payments.map((payment) => ({
+          userId: payment.user.id,
+          userEmail: payment.user.email,
+          userName: payment.user.name,
+          usedAt: payment.createdAt,
+        })),
       })),
     });
   })
 );
 
-// 3. POST /api/coupons - 쿠폰 생성 (Admin only)
+// 랜덤 쿠폰 코드 생성 함수
+const generateRandomCode = (length: number = 6): string => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 혼동되는 문자 제외 (0,O,1,I)
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+};
+
+// 3. POST /api/coupons/bulk - 쿠폰 대량 생성 (Admin only)
+router.post(
+  "/bulk",
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { count, discountAmount, expiresAt, maxUses, description, prefix } = req.body;
+
+    // 필수 필드 검증
+    if (!count || !discountAmount || !expiresAt) {
+      throw new BadRequestError(
+        "필수 필드를 모두 입력해주세요. (count, discountAmount, expiresAt)"
+      );
+    }
+
+    if (count < 1 || count > 100) {
+      throw new BadRequestError("생성 개수는 1~100개 사이여야 합니다.");
+    }
+
+    const coupons = [];
+    const existingCodes = new Set<string>();
+
+    // 기존 쿠폰 코드 조회 (중복 방지)
+    const existingCoupons = await prisma.coupon.findMany({
+      select: { code: true },
+    });
+    existingCoupons.forEach((c) => existingCodes.add(c.code));
+
+    // 쿠폰 생성
+    for (let i = 0; i < count; i++) {
+      let code: string;
+      let attempts = 0;
+      const maxAttempts = 10;
+
+      // 중복되지 않는 코드 생성
+      do {
+        const randomPart = generateRandomCode(6);
+        code = prefix ? `${prefix.toUpperCase()}-${randomPart}` : randomPart;
+        attempts++;
+      } while (existingCodes.has(code) && attempts < maxAttempts);
+
+      if (attempts >= maxAttempts) {
+        throw new BadRequestError("고유한 쿠폰 코드를 생성할 수 없습니다. 다른 prefix를 사용해주세요.");
+      }
+
+      existingCodes.add(code);
+
+      const coupon = await prisma.coupon.create({
+        data: {
+          code,
+          discountAmount,
+          expiresAt: new Date(expiresAt),
+          maxUses: maxUses ?? 1,
+          description: description || null,
+        },
+      });
+
+      coupons.push({
+        id: coupon.id,
+        code: coupon.code,
+        discountAmount: coupon.discountAmount,
+        expiresAt: coupon.expiresAt,
+        maxUses: coupon.maxUses,
+        usedCount: coupon.usedCount,
+        isActive: coupon.isActive,
+        description: coupon.description,
+        createdAt: coupon.createdAt,
+        updatedAt: coupon.updatedAt,
+      });
+    }
+
+    res.json({
+      created: coupons.length,
+      coupons,
+    });
+  })
+);
+
+// 4. POST /api/coupons - 쿠폰 생성 (Admin only)
 router.post(
   "/",
   authenticate,
