@@ -26,6 +26,7 @@ model User {
   favorites       FavoriteGrant[]
   payments        Payment[]
   creditHistories CreditHistory[]
+  paymentRequests PaymentRequest[]
 
   @@map("users")
 }
@@ -153,5 +154,25 @@ model Coupon {
   @@index([code])
   @@index([isActive])
   @@map("coupons")
+}
+
+// 무통장 입금 요청
+model PaymentRequest {
+  id            String   @id @default(cuid())
+  userId        String
+  depositorName String   @db.VarChar(100) // 입금자명
+  amount        Int      // 입금 금액
+  status        String   @default("pending") @db.VarChar(20) // pending | approved | rejected
+  creditsToAdd  Int      @default(1) // 추가할 이용권 수
+  adminNote     String?  @db.Text // 관리자 메모 (거절 사유 등)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 관계
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@map("payment_requests")
 }
 
