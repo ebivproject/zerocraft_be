@@ -99,11 +99,8 @@ router.get(
     const coupons = await prisma.coupon.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        payments: {
-          where: { status: "completed" },
-          select: {
-            id: true,
-            createdAt: true,
+        usages: {
+          include: {
             user: {
               select: {
                 id: true,
@@ -112,50 +109,21 @@ router.get(
               },
             },
           },
-          orderBy: { createdAt: "desc" },
-        },
-        paymentRequests: {
-          where: { status: "approved" },
-          select: {
-            id: true,
-            createdAt: true,
-            user: {
-              select: {
-                id: true,
-                email: true,
-                name: true,
-              },
-            },
-          },
-          orderBy: { createdAt: "desc" },
+          orderBy: { usedAt: "desc" },
         },
       },
     });
 
     res.json({
       data: coupons.map((coupon) => {
-        // 토스페이먼츠 결제 사용 내역
-        const paymentUsages = coupon.payments.map((payment) => ({
-          userId: payment.user.id,
-          userEmail: payment.user.email,
-          userName: payment.user.name,
-          usedAt: payment.createdAt,
-          type: "payment" as const,
+        // CouponUsage 테이블에서 사용 내역 조회
+        const usedBy = coupon.usages.map((usage) => ({
+          userId: usage.user.id,
+          userEmail: usage.user.email,
+          userName: usage.user.name,
+          usedAt: usage.usedAt,
+          type: usage.type as "payment" | "bank_transfer",
         }));
-
-        // 무통장 입금 사용 내역
-        const requestUsages = coupon.paymentRequests.map((req) => ({
-          userId: req.user.id,
-          userEmail: req.user.email,
-          userName: req.user.name,
-          usedAt: req.createdAt,
-          type: "bank_transfer" as const,
-        }));
-
-        // 합쳐서 날짜순 정렬
-        const usedBy = [...paymentUsages, ...requestUsages].sort(
-          (a, b) => new Date(b.usedAt).getTime() - new Date(a.usedAt).getTime()
-        );
 
         return {
           id: coupon.id,

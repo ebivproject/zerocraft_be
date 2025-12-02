@@ -27,6 +27,7 @@ model User {
   payments        Payment[]
   creditHistories CreditHistory[]
   paymentRequests PaymentRequest[]
+  couponUsages    CouponUsage[]
 
   @@map("users")
 }
@@ -151,6 +152,7 @@ model Coupon {
   // 관계
   payments        Payment[]
   paymentRequests PaymentRequest[]
+  usages          CouponUsage[]
 
   @@index([code])
   @@index([isActive])
@@ -183,5 +185,22 @@ model PaymentRequest {
   @@index([status])
   @@index([userId])
   @@map("payment_requests")
+}
+
+// 쿠폰 사용 내역
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId  String
+  userId    String
+  type      String   @default("bank_transfer") @db.VarChar(20) // "payment" | "bank_transfer"
+  usedAt    DateTime @default(now())
+
+  // 관계
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([couponId])
+  @@index([userId])
+  @@map("coupon_usages")
 }
 

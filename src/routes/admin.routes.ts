@@ -464,17 +464,9 @@ router.post(
         },
       });
 
-      // 3. 쿠폰 사용 횟수 증가 (쿠폰이 적용된 경우)
-      if (paymentRequest.couponId) {
-        await tx.coupon.update({
-          where: { id: paymentRequest.couponId },
-          data: {
-            usedCount: { increment: 1 },
-          },
-        });
-      }
+      // 쿠폰은 이미 요청 제출 시 차감되었으므로 승인 시에는 처리하지 않음
 
-      // 4. 크레딧 내역 기록
+      // 3. 크레딧 내역 기록
       await tx.creditHistory.create({
         data: {
           userId: paymentRequest.userId,
@@ -517,12 +509,35 @@ router.post(
       throw new BadRequestError("이미 처리된 요청입니다.");
     }
 
-    const result = await prisma.paymentRequest.update({
-      where: { id },
-      data: {
-        status: "rejected",
-        adminNote: adminNote || null,
-      },
+    // 트랜잭션으로 거절 처리 + 쿠폰 복구
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 결제 요청 거절
+      const updatedRequest = await tx.paymentRequest.update({
+        where: { id },
+        data: {
+          status: "rejected",
+          adminNote: adminNote || null,
+        },
+      });
+
+      // 2. 쿠폰 복구 (요청 제출 시 차감된 쿠폰 되돌리기)
+      if (paymentRequest.couponId) {
+        // 쿠폰 사용 횟수 감소
+        await tx.coupon.update({
+          where: { id: paymentRequest.couponId },
+          data: { usedCount: { decrement: 1 } },
+        });
+
+        // 쿠폰 사용 내역 삭제
+        await tx.couponUsage.deleteMany({
+          where: {
+            couponId: paymentRequest.couponId,
+            userId: paymentRequest.userId,
+          },
+        });
+      }
+
+      return updatedRequest;
     });
 
     res.json({

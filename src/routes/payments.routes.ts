@@ -192,12 +192,22 @@ router.post(
         },
       });
 
-      // 쿠폰 사용 횟수 증가
+      // 쿠폰 사용 처리
       if (payment.couponId) {
+        // 쿠폰 사용 횟수 증가
         await tx.coupon.update({
           where: { id: payment.couponId },
           data: {
             usedCount: { increment: 1 },
+          },
+        });
+
+        // 쿠폰 사용 내역 기록
+        await tx.couponUsage.create({
+          data: {
+            couponId: payment.couponId,
+            userId,
+            type: "payment",
           },
         });
       }

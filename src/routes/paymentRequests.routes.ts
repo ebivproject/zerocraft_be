@@ -47,18 +47,42 @@ router.post(
     // 최종 금액 = 상품 정가 - 할인 금액
     const finalAmount = Math.max(0, PRODUCT_PRICE - discountAmount);
 
-    const paymentRequest = await prisma.paymentRequest.create({
-      data: {
-        userId,
-        depositorName,
-        amount: finalAmount,
-        originalAmount: PRODUCT_PRICE, // 상품 정가 사용
-        couponId,
-        couponCode: couponCodeToSave,
-        discountAmount,
-        creditsToAdd: creditsToAdd || 1,
-        status: "pending",
-      },
+    // 트랜잭션으로 결제 요청 생성 + 쿠폰 즉시 사용 처리
+    const paymentRequest = await prisma.$transaction(async (tx) => {
+      // 1. 결제 요청 생성
+      const request = await tx.paymentRequest.create({
+        data: {
+          userId,
+          depositorName,
+          amount: finalAmount,
+          originalAmount: PRODUCT_PRICE,
+          couponId,
+          couponCode: couponCodeToSave,
+          discountAmount,
+          creditsToAdd: creditsToAdd || 1,
+          status: "pending",
+        },
+      });
+
+      // 2. 쿠폰 즉시 사용 처리 (요청 제출 시 차감)
+      if (couponId) {
+        // 쿠폰 사용 횟수 증가
+        await tx.coupon.update({
+          where: { id: couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+
+        // 쿠폰 사용 내역 기록
+        await tx.couponUsage.create({
+          data: {
+            couponId,
+            userId,
+            type: "bank_transfer",
+          },
+        });
+      }
+
+      return request;
     });
 
     res.status(201).json({
