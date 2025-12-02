@@ -14,15 +14,18 @@ router.post(
   authenticate,
   asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { depositorName, originalAmount, couponCode, creditsToAdd } =
+    const { depositorName, originalAmount, amount, couponCode, creditsToAdd } =
       req.body;
 
+    // amount 또는 originalAmount 둘 다 허용 (하위 호환)
+    const baseAmount = originalAmount || amount;
+
     // 필수 필드 검증
-    if (!depositorName || !originalAmount) {
+    if (!depositorName || !baseAmount) {
       throw new BadRequestError("입금자명과 금액은 필수입니다.");
     }
 
-    if (originalAmount < 1000) {
+    if (baseAmount < 1000) {
       throw new BadRequestError("최소 입금 금액은 1,000원입니다.");
     }
 
@@ -46,14 +49,14 @@ router.post(
       discountAmount = coupon.discountAmount;
     }
 
-    const finalAmount = Math.max(0, originalAmount - discountAmount);
+    const finalAmount = Math.max(0, baseAmount - discountAmount);
 
     const paymentRequest = await prisma.paymentRequest.create({
       data: {
         userId,
         depositorName,
         amount: finalAmount,
-        originalAmount,
+        originalAmount: baseAmount,
         couponId,
         couponCode: couponCodeToSave,
         discountAmount,
