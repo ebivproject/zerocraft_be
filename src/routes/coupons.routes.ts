@@ -114,28 +114,63 @@ router.get(
           },
           orderBy: { createdAt: "desc" },
         },
+        paymentRequests: {
+          where: { status: "approved" },
+          select: {
+            id: true,
+            createdAt: true,
+            user: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
     res.json({
-      data: coupons.map((coupon) => ({
-        id: coupon.id,
-        code: coupon.code,
-        discountAmount: coupon.discountAmount,
-        expiresAt: coupon.expiresAt,
-        maxUses: coupon.maxUses,
-        usedCount: coupon.usedCount,
-        isActive: coupon.isActive,
-        description: coupon.description,
-        createdAt: coupon.createdAt,
-        updatedAt: coupon.updatedAt,
-        usedBy: coupon.payments.map((payment) => ({
+      data: coupons.map((coupon) => {
+        // 토스페이먼츠 결제 사용 내역
+        const paymentUsages = coupon.payments.map((payment) => ({
           userId: payment.user.id,
           userEmail: payment.user.email,
           userName: payment.user.name,
           usedAt: payment.createdAt,
-        })),
-      })),
+          type: "payment" as const,
+        }));
+
+        // 무통장 입금 사용 내역
+        const requestUsages = coupon.paymentRequests.map((req) => ({
+          userId: req.user.id,
+          userEmail: req.user.email,
+          userName: req.user.name,
+          usedAt: req.createdAt,
+          type: "bank_transfer" as const,
+        }));
+
+        // 합쳐서 날짜순 정렬
+        const usedBy = [...paymentUsages, ...requestUsages].sort(
+          (a, b) => new Date(b.usedAt).getTime() - new Date(a.usedAt).getTime()
+        );
+
+        return {
+          id: coupon.id,
+          code: coupon.code,
+          discountAmount: coupon.discountAmount,
+          expiresAt: coupon.expiresAt,
+          maxUses: coupon.maxUses,
+          usedCount: coupon.usedCount,
+          isActive: coupon.isActive,
+          description: coupon.description,
+          createdAt: coupon.createdAt,
+          updatedAt: coupon.updatedAt,
+          usedBy,
+        };
+      }),
     });
   })
 );

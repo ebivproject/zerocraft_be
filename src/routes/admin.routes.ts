@@ -177,10 +177,7 @@ router.get(
 
     const where = search
       ? {
-          OR: [
-            { email: { contains: search } },
-            { name: { contains: search } },
-          ],
+          OR: [{ email: { contains: search } }, { name: { contains: search } }],
         }
       : {};
 
@@ -249,7 +246,9 @@ router.patch(
 
     // 유효한 역할인지 검증
     if (!role || !["admin", "user"].includes(role)) {
-      throw new BadRequestError("유효한 역할을 입력해주세요. (admin 또는 user)");
+      throw new BadRequestError(
+        "유효한 역할을 입력해주세요. (admin 또는 user)"
+      );
     }
 
     // 자기 자신의 역할은 변경 불가
@@ -343,7 +342,9 @@ router.patch(
             userId: id,
             type: creditDiff > 0 ? "purchase" : "use",
             amount: creditDiff,
-            description: reason || `관리자에 의한 이용권 ${creditDiff > 0 ? "지급" : "차감"}`,
+            description:
+              reason ||
+              `관리자에 의한 이용권 ${creditDiff > 0 ? "지급" : "차감"}`,
           },
         });
       }
@@ -374,7 +375,10 @@ router.get(
     const { status } = req.query;
 
     const where: any = {};
-    if (status && ["pending", "approved", "rejected"].includes(status as string)) {
+    if (
+      status &&
+      ["pending", "approved", "rejected"].includes(status as string)
+    ) {
       where.status = status;
     }
 
@@ -404,6 +408,9 @@ router.get(
       userEmail: r.user.email,
       depositorName: r.depositorName,
       amount: r.amount,
+      originalAmount: r.originalAmount,
+      couponCode: r.couponCode,
+      discountAmount: r.discountAmount,
       status: r.status,
       creditsToAdd: r.creditsToAdd,
       adminNote: r.adminNote,
@@ -457,7 +464,17 @@ router.post(
         },
       });
 
-      // 3. 크레딧 내역 기록
+      // 3. 쿠폰 사용 횟수 증가 (쿠폰이 적용된 경우)
+      if (paymentRequest.couponId) {
+        await tx.coupon.update({
+          where: { id: paymentRequest.couponId },
+          data: {
+            usedCount: { increment: 1 },
+          },
+        });
+      }
+
+      // 4. 크레딧 내역 기록
       await tx.creditHistory.create({
         data: {
           userId: paymentRequest.userId,

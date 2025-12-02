@@ -149,7 +149,8 @@ model Coupon {
   updatedAt      DateTime  @updatedAt
 
   // 관계
-  payments Payment[]
+  payments        Payment[]
+  paymentRequests PaymentRequest[]
 
   @@index([code])
   @@index([isActive])
@@ -158,18 +159,26 @@ model Coupon {
 
 // 무통장 입금 요청
 model PaymentRequest {
-  id            String   @id @default(cuid())
-  userId        String
-  depositorName String   @db.VarChar(100) // 입금자명
-  amount        Int      // 입금 금액
-  status        String   @default("pending") @db.VarChar(20) // pending | approved | rejected
-  creditsToAdd  Int      @default(1) // 추가할 이용권 수
-  adminNote     String?  @db.Text // 관리자 메모 (거절 사유 등)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(cuid())
+  userId         String
+  depositorName  String   @db.VarChar(100) // 입금자명
+  amount         Int      // 실제 입금 금액 (쿠폰 적용 후)
+  originalAmount Int      @default(0) // 원래 금액 (쿠폰 적용 전)
+
+  // 쿠폰 관련 필드
+  couponId       String?  // 적용된 쿠폰 ID
+  couponCode     String?  @db.VarChar(50) // 적용된 쿠폰 코드 (조회용)
+  discountAmount Int      @default(0) // 할인 금액
+
+  status         String   @default("pending") @db.VarChar(20) // pending | approved | rejected
+  creditsToAdd   Int      @default(1) // 추가할 이용권 수
+  adminNote      String?  @db.Text // 관리자 메모 (거절 사유 등)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   // 관계
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coupon Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([userId])
